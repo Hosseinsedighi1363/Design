@@ -225,6 +225,28 @@ class ThemeManager:
                 border: none;
                 padding: 6px;
             }}
+            QMessageBox {{
+                background-color: {theme['input_bg']};
+                color: {theme['input_text']};
+            }}
+            QMessageBox QLabel {{
+                color: {theme['input_text']};
+            }}
+            QMessageBox QPushButton {{
+                background-color: {theme['button']};
+                color: {theme['button_text']};
+                border: 1px solid rgba(0,0,0,0.15);
+                padding: 6px 10px;
+                border-radius: 6px;
+            }}
+            QMessageBox QPushButton:hover {{
+                background-color: {theme['button_hover']};
+            }}
+            QToolTip {{
+                background-color: {theme['button']};
+                color: {theme['button_text']};
+                border: 1px solid {theme['button_hover']};
+            }}
         """)
 
 
