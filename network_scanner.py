@@ -26,7 +26,10 @@ def load_vazir_font():
         else:
             base_path = os.path.dirname(os.path.abspath(__file__))
 
+        # اولویت با Sahel سپس Vazir
         candidates = [
+            os.path.join(base_path, "Fonts", "Sahel.ttf"),
+            os.path.join(base_path, "Sahel.ttf"),
             os.path.join(base_path, "Fonts", "Vazir.ttf"),
             os.path.join(base_path, "Vazir.ttf"),
         ]
@@ -41,6 +44,11 @@ def load_vazir_font():
                         app = QApplication.instance()
                         if app is not None:
                             app.setFont(QFont(font_family, 10))
+                        # تنظیم فونت پیش‌فرض matplotlib نیز
+                        try:
+                            matplotlib.rc('font', family=font_family)
+                        except Exception:
+                            pass
                         return FontProperties(fname=font_path)
         return None
     except Exception as e:
