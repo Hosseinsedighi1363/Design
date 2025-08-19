@@ -13,6 +13,8 @@ from matplotlib.font_manager import FontProperties
 from matplotlib import font_manager as mpl_font_manager
 from matplotlib import ticker as mticker
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvasAgg
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -755,37 +757,41 @@ class ScanWorker(QThread):
             font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             if port_states:
-                plt.figure(figsize=(6, 4))
-                plt.pie(port_states.values(), labels=[shape_text(k) for k in port_states.keys()], autopct=fa_autopct,
-                        textprops={'fontproperties': font_prop})
-                plt.title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "port_states_pie.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.pie(list(port_states.values()), labels=[shape_text(k) for k in port_states.keys()], autopct=fa_autopct,
+                       textprops={'fontproperties': font_prop})
+                ax.set_title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "port_states_pie.png"), dpi=300, bbox_inches='tight')
 
             if protocol_counts:
-                plt.figure(figsize=(6, 4))
-                plt.bar(list(protocol_counts.keys()), list(protocol_counts.values()))
-                plt.title(shape_text("استفاده از پروتکل‌ها"), fontproperties=font_prop)
-                plt.xlabel(shape_text("پروتکل"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "protocol_usage_bar.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(list(protocol_counts.keys()), list(protocol_counts.values()))
+                ax.set_title(shape_text("استفاده از پروتکل‌ها"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("پروتکل"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "protocol_usage_bar.png"), dpi=300, bbox_inches='tight')
 
             if open_ports_per_ip:
-                plt.figure(figsize=(10, 6))
+                fig = Figure(figsize=(10, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
                 ips = list(open_ports_per_ip.keys())
                 counts = list(open_ports_per_ip.values())
                 if len(ips) > 20:
                     ips = ips[:20]
                     counts = counts[:20]
-                plt.bar(range(len(ips)), counts)
-                plt.xticks(range(len(ips)), ips, rotation=45, ha='right')
-                plt.title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
-                plt.xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, "open_ports_per_ip.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                ax.bar(range(len(ips)), counts)
+                ax.set_xticks(range(len(ips)))
+                ax.set_xticklabels([fa_digits(ip) for ip in ips], rotation=45, ha='right')
+                ax.set_title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
+                fig.tight_layout()
+                fig.savefig(os.path.join(output_dir, "open_ports_per_ip.png"), dpi=300, bbox_inches='tight')
 
             # نمودار جدید: تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت
             if counts_per_port:
@@ -793,22 +799,25 @@ class ScanWorker(QThread):
                 ports, counts = zip(*sorted_items)
 
                 # ستونی
-                plt.figure(figsize=(10, 6))
-                plt.bar(range(len(ports)), counts)
-                plt.xticks(range(len(ports)), ports, rotation=45, ha='right')
-                plt.title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
-                plt.xlabel(shape_text("پورت"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, "counts_per_port_bar.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(10, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(range(len(ports)), counts)
+                ax.set_xticks(range(len(ports)))
+                ax.set_xticklabels([fa_digits(p) for p in ports], rotation=45, ha='right')
+                ax.set_title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("پورت"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
+                fig.tight_layout()
+                fig.savefig(os.path.join(output_dir, "counts_per_port_bar.png"), dpi=300, bbox_inches='tight')
 
                 # دایره‌ای
-                plt.figure(figsize=(6, 6))
-                plt.pie(counts, labels=ports, autopct=fa_autopct, textprops={'fontproperties': font_prop})
-                plt.title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "counts_per_port_pie.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.pie(counts, labels=[fa_digits(p) for p in ports], autopct=fa_autopct, textprops={'fontproperties': font_prop})
+                ax.set_title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "counts_per_port_pie.png"), dpi=300, bbox_inches='tight')
         except Exception as e:
             error_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] خطا در تولید نمودارها: {str(e)}\n"
             self.log_message.emit(error_msg)
@@ -2319,37 +2328,41 @@ class ScanWorker(QThread):
             font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             if port_states:
-                plt.figure(figsize=(6, 4))
-                plt.pie(port_states.values(), labels=[shape_text(k) for k in port_states.keys()], autopct='%1.1f%%',
-                        textprops={'fontproperties': font_prop})
-                plt.title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "port_states_pie.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.pie(list(port_states.values()), labels=[shape_text(k) for k in port_states.keys()], autopct=fa_autopct,
+                       textprops={'fontproperties': font_prop})
+                ax.set_title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "port_states_pie.png"), dpi=300, bbox_inches='tight')
 
             if protocol_counts:
-                plt.figure(figsize=(6, 4))
-                plt.bar(list(protocol_counts.keys()), list(protocol_counts.values()))
-                plt.title(shape_text("استفاده از پروتکل‌ها"), fontproperties=font_prop)
-                plt.xlabel(shape_text("پروتکل"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "protocol_usage_bar.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(list(protocol_counts.keys()), list(protocol_counts.values()))
+                ax.set_title(shape_text("استفاده از پروتکل‌ها"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("پروتکل"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "protocol_usage_bar.png"), dpi=300, bbox_inches='tight')
 
             if open_ports_per_ip:
-                plt.figure(figsize=(10, 6))
+                fig = Figure(figsize=(10, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
                 ips = list(open_ports_per_ip.keys())
                 counts = list(open_ports_per_ip.values())
                 if len(ips) > 20:
                     ips = ips[:20]
                     counts = counts[:20]
-                plt.bar(range(len(ips)), counts)
-                plt.xticks(range(len(ips)), ips, rotation=45, ha='right')
-                plt.title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
-                plt.xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, "open_ports_per_ip.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                ax.bar(range(len(ips)), counts)
+                ax.set_xticks(range(len(ips)))
+                ax.set_xticklabels([fa_digits(ip) for ip in ips], rotation=45, ha='right')
+                ax.set_title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
+                fig.tight_layout()
+                fig.savefig(os.path.join(output_dir, "open_ports_per_ip.png"), dpi=300, bbox_inches='tight')
 
             # نمودار جدید: تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت
             if counts_per_port:
@@ -2357,22 +2370,25 @@ class ScanWorker(QThread):
                 ports, counts = zip(*sorted_items)
 
                 # ستونی
-                plt.figure(figsize=(10, 6))
-                plt.bar(range(len(ports)), counts)
-                plt.xticks(range(len(ports)), ports, rotation=45, ha='right')
-                plt.title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
-                plt.xlabel(shape_text("پورت"), fontproperties=font_prop)
-                plt.ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, "counts_per_port_bar.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(10, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.bar(range(len(ports)), counts)
+                ax.set_xticks(range(len(ports)))
+                ax.set_xticklabels([fa_digits(p) for p in ports], rotation=45, ha='right')
+                ax.set_title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
+                ax.set_xlabel(shape_text("پورت"), fontproperties=font_prop)
+                ax.set_ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
+                fig.tight_layout()
+                fig.savefig(os.path.join(output_dir, "counts_per_port_bar.png"), dpi=300, bbox_inches='tight')
 
                 # دایره‌ای
-                plt.figure(figsize=(6, 6))
-                plt.pie(counts, labels=ports, autopct='%1.1f%%', textprops={'fontproperties': font_prop})
-                plt.title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
-                plt.savefig(os.path.join(output_dir, "counts_per_port_pie.png"), dpi=300, bbox_inches='tight')
-                plt.close()
+                fig = Figure(figsize=(6, 6))
+                canvas = FigureCanvasAgg(fig)
+                ax = fig.add_subplot(111)
+                ax.pie(counts, labels=[fa_digits(p) for p in ports], autopct=fa_autopct, textprops={'fontproperties': font_prop})
+                ax.set_title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
+                fig.savefig(os.path.join(output_dir, "counts_per_port_pie.png"), dpi=300, bbox_inches='tight')
         except Exception as e:
             error_msg = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] خطا در تولید نمودارها: {str(e)}\n"
             self.log_message.emit(error_msg)
