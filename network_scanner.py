@@ -68,6 +68,20 @@ except Exception:
     def shape_text(text: str) -> str:
         return text
 
+# تبدیل اعداد انگلیسی به فارسی برای برچسب‌های درصد
+def fa_digits(text: str) -> str:
+    mapping = str.maketrans('0123456789.%', '۰۱۲۳۴۵۶۷۸۹.%')
+    try:
+        return text.translate(mapping)
+    except Exception:
+        return text
+
+def fa_autopct(pct: float, fmt: str = '%1.1f%%') -> str:
+    try:
+        return fa_digits(fmt % pct)
+    except Exception:
+        return fmt % pct
+
 
 class ThemeManager:
     """مدیریت تم‌های تاریک و روشن"""
@@ -687,7 +701,7 @@ class ScanWorker(QThread):
 
             if port_states:
                 plt.figure(figsize=(6, 4))
-                plt.pie(port_states.values(), labels=[shape_text(k) for k in port_states.keys()], autopct='%1.1f%%',
+                plt.pie(port_states.values(), labels=[shape_text(k) for k in port_states.keys()], autopct=fa_autopct,
                         textprops={'fontproperties': font_prop})
                 plt.title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
                 plt.savefig(os.path.join(output_dir, "port_states_pie.png"), dpi=300, bbox_inches='tight')
@@ -736,7 +750,7 @@ class ScanWorker(QThread):
 
                 # دایره‌ای
                 plt.figure(figsize=(6, 6))
-                plt.pie(counts, labels=ports, autopct='%1.1f%%', textprops={'fontproperties': font_prop})
+                plt.pie(counts, labels=ports, autopct=fa_autopct, textprops={'fontproperties': font_prop})
                 plt.title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
                 plt.savefig(os.path.join(output_dir, "counts_per_port_pie.png"), dpi=300, bbox_inches='tight')
                 plt.close()
@@ -1288,7 +1302,7 @@ class ReportsTab(QWidget):
             self.pie_chart.figure.clear()
             ax = self.pie_chart.figure.add_subplot(111)
             if port_states:
-                ax.pie(list(port_states.values()), labels=[shape_text(k) for k in port_states.keys()], autopct='%1.1f%%',
+                ax.pie(list(port_states.values()), labels=[shape_text(k) for k in port_states.keys()], autopct=fa_autopct,
                        textprops={'fontproperties': font_prop})
                 ax.set_title(shape_text("توزیع وضعیت پورت‌ها"), fontproperties=font_prop)
             self.pie_chart.draw()
@@ -1330,7 +1344,7 @@ class ReportsTab(QWidget):
                 ports = [p for p, _ in top_items]
                 counts = [c for _, c in top_items]
                 if self.port_chart_type_combo.currentText() == "دایره‌ای":
-                    ax.pie(counts, labels=ports, autopct='%1.1f%%', textprops={'fontproperties': font_prop})
+                    ax.pie(counts, labels=ports, autopct=fa_autopct, textprops={'fontproperties': font_prop})
                     ax.set_title(shape_text("سهم پورت‌ها از بین میزبان‌های دارای پورت باز"), fontproperties=font_prop)
                 else:
                     ax.bar(range(len(ports)), counts)
