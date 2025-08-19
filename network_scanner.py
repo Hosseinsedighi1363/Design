@@ -10,6 +10,8 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager as mpl_font_manager
+from matplotlib import ticker as mticker
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from PyQt5.QtWidgets import *
@@ -19,45 +21,67 @@ from PyQt5.QtGui import *
 
 # بارگذاری فونت Vazir پس از ایجاد QApplication
 def load_vazir_font():
-    """بارگذاری فونت Vazir و اعمال آن در صورت وجود QApplication"""
+    """بارگذاری Vazir برای UI و Sahel برای matplotlib. هر دو را به سیستم matplotlib معرفی می‌کند."""
     try:
         if getattr(sys, 'frozen', False):
             base_path = os.path.dirname(sys.executable)
         else:
             base_path = os.path.dirname(os.path.abspath(__file__))
 
-        # اولویت با Sahel سپس Vazir
-        candidates = [
+        # مسیرهای فونت‌ها
+        sahel_candidates = [
             os.path.join(base_path, "Fonts", "Sahel.ttf"),
             os.path.join(base_path, "Sahel.ttf"),
+        ]
+        vazir_candidates = [
             os.path.join(base_path, "Fonts", "Vazir.ttf"),
             os.path.join(base_path, "Vazir.ttf"),
         ]
 
-        for font_path in candidates:
+        # 1) بارگذاری و اعمال Vazir برای UI
+        vazir_fp = None
+        for font_path in vazir_candidates:
             if os.path.exists(font_path):
                 font_id = QFontDatabase.addApplicationFont(font_path)
                 if font_id != -1:
-                    font_families = QFontDatabase.applicationFontFamilies(font_id)
-                    if font_families:
-                        font_family = font_families[0]
+                    fams = QFontDatabase.applicationFontFamilies(font_id)
+                    if fams:
                         app = QApplication.instance()
                         if app is not None:
-                            app.setFont(QFont(font_family, 10))
-                        # تنظیم فونت پیش‌فرض matplotlib نیز
-                        try:
-                            matplotlib.rc('font', family=font_family)
-                        except Exception:
-                            pass
-                        return FontProperties(fname=font_path)
-        return None
+                            app.setFont(QFont(fams[0], 10))
+                        vazir_fp = FontProperties(fname=font_path)
+                        break
+
+        # 2) معرفی Sahel به matplotlib (برای نمودارها)
+        sahel_fp = None
+        for font_path in sahel_candidates:
+            if os.path.exists(font_path):
+                try:
+                    mpl_font_manager.fontManager.addfont(font_path)
+                except Exception:
+                    pass
+                sahel_fp = FontProperties(fname=font_path)
+                break
+
+        # اگر ساحل وجود داشت، آن را به عنوان پیش‌فرض matplotlib تنظیم کن
+        try:
+            if sahel_fp:
+                matplotlib.rc('font', family='Sahel')
+            elif vazir_fp:
+                matplotlib.rc('font', family='Vazir')
+        except Exception:
+            pass
+
+        # برگرداندن Vazir برای UI؛ Sahel سراسری نیز در متغیر global ست می‌شود در main
+        return vazir_fp
     except Exception as e:
         print(f"خطا در بارگذاری فونت Vazir: {str(e)}")
         return None
 
 
-# متغیر سراسری فونت (پس از راه‌اندازی QApplication مقداردهی می‌شود)
+# متغیرهای سراسری فونت (پس از راه‌اندازی QApplication مقداردهی می‌شود)
 vazir_font = None
+sahel_font = None
 
 # شکل‌دهی متن فارسی برای Matplotlib (در صورت نصب کتابخانه‌ها)
 try:
@@ -727,8 +751,8 @@ class ScanWorker(QThread):
                         open_ports_per_ip[current_ip] += 1
                         counts_per_port[port_no] += 1
 
-            # فونت نمودار
-            font_prop = vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties()
+            # فونت نمودار (اولویت با Sahel)
+            font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             if port_states:
                 plt.figure(figsize=(6, 4))
@@ -1026,8 +1050,16 @@ class SimpleScanTab(QWidget):
 
     def load_profile(self):
         profile_name = self.profile_combo.currentText()
+        # اگر کاربر چیزی انتخاب نکرده، یک پنجره انتخاب نشان بده
         if profile_name == "انتخاب پروفایل...":
-            return
+            if not self.profiles:
+                QMessageBox.information(self, "پروفایل", "هیچ پروفایلی ذخیره نشده است")
+                return
+            names = list(self.profiles.keys())
+            name, ok = QInputDialog.getItem(self, "انتخاب پروفایل", "لطفاً پروفایل را انتخاب کنید:", names, 0, False)
+            if not ok:
+                return
+            profile_name = name
 
         if profile_name in self.profiles:
             profile = self.profiles[profile_name]
@@ -1039,6 +1071,10 @@ class SimpleScanTab(QWidget):
             self.file_path.clear()
             self.file_path.setEnabled(False)
             self.ip_input.setEnabled(True)
+            # در کامبو نیز انتخاب را همگام کن
+            idx = self.profile_combo.findText(profile_name)
+            if idx >= 0:
+                self.profile_combo.setCurrentIndex(idx)
             QMessageBox.information(self, "موفقیت", f"پروفایل '{profile_name}' بارگیری شد")
 
     def delete_profile(self):
@@ -1175,7 +1211,14 @@ class AdvancedScanTab(SimpleScanTab):
     def load_profile(self):
         profile_name = self.profile_combo.currentText()
         if profile_name == "انتخاب پروفایل...":
-            return
+            if not self.profiles:
+                QMessageBox.information(self, "پروفایل", "هیچ پروفایلی ذخیره نشده است")
+                return
+            names = list(self.profiles.keys())
+            name, ok = QInputDialog.getItem(self, "انتخاب پروفایل", "لطفاً پروفایل را انتخاب کنید:", names, 0, False)
+            if not ok:
+                return
+            profile_name = name
 
         if profile_name in self.profiles:
             profile = self.profiles[profile_name]
@@ -1191,6 +1234,9 @@ class AdvancedScanTab(SimpleScanTab):
             self.file_path.clear()
             self.file_path.setEnabled(False)
             self.ip_input.setEnabled(True)
+            idx = self.profile_combo.findText(profile_name)
+            if idx >= 0:
+                self.profile_combo.setCurrentIndex(idx)
             QMessageBox.information(self, "موفقیت", f"پروفایل '{profile_name}' بارگیری شد")
 
 
@@ -1327,7 +1373,7 @@ class ReportsTab(QWidget):
                     open_ports_per_ip[ip] += 1
                     counts_per_port[port_no] += 1
 
-            font_prop = vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties()
+            font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             # نمودار دایره‌ای وضعیت پورت‌ها
             self.pie_chart.figure.clear()
@@ -1359,7 +1405,7 @@ class ReportsTab(QWidget):
                     counts = counts[:20]
                 ax.bar(range(len(ips)), counts)
                 ax.set_xticks(range(len(ips)))
-                ax.set_xticklabels(ips, rotation=45, ha='right')
+                ax.set_xticklabels([fa_digits(ip) for ip in ips], rotation=45, ha='right')
                 ax.set_title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
                 ax.set_xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
                 ax.set_ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
@@ -1380,7 +1426,7 @@ class ReportsTab(QWidget):
                 else:
                     ax.bar(range(len(ports)), counts)
                     ax.set_xticks(range(len(ports)))
-                    ax.set_xticklabels(ports, rotation=45, ha='right')
+                    ax.set_xticklabels([fa_digits(p) for p in ports], rotation=45, ha='right')
                     ax.set_title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
                     ax.set_xlabel(shape_text("پورت"), fontproperties=font_prop)
                     ax.set_ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
@@ -1565,8 +1611,14 @@ def main():
     app = QApplication(sys.argv)
 
     # بارگذاری فونت (پس از ایجاد QApplication)
-    global vazir_font
+    global vazir_font, sahel_font
     vazir_font = load_vazir_font()
+    # تلاش برای یافتن Sahel از مسیرهای بارگذاری شده
+    try:
+        # اگر Sahel ثبت شده باشد، یک FontProperties با نام خانواده بساز
+        sahel_font = FontProperties(family='Sahel')
+    except Exception:
+        sahel_font = None
 
     ThemeManager.apply_theme(app, "dark")
 
@@ -2263,8 +2315,8 @@ class ScanWorker(QThread):
                         open_ports_per_ip[current_ip] += 1
                         counts_per_port[port_no] += 1
 
-            # فونت نمودار
-            font_prop = vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties()
+            # فونت نمودار (اولویت با Sahel)
+            font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             if port_states:
                 plt.figure(figsize=(6, 4))
@@ -2863,7 +2915,7 @@ class ReportsTab(QWidget):
                     open_ports_per_ip[ip] += 1
                     counts_per_port[port_no] += 1
 
-            font_prop = vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties()
+            font_prop = sahel_font if (sahel_font is not None) else (vazir_font if (vazir_font and hasattr(vazir_font, 'get_file') and vazir_font.get_file()) else FontProperties())
 
             # نمودار دایره‌ای وضعیت پورت‌ها
             self.pie_chart.figure.clear()
@@ -2895,7 +2947,7 @@ class ReportsTab(QWidget):
                     counts = counts[:20]
                 ax.bar(range(len(ips)), counts)
                 ax.set_xticks(range(len(ips)))
-                ax.set_xticklabels(ips, rotation=45, ha='right')
+                ax.set_xticklabels([fa_digits(ip) for ip in ips], rotation=45, ha='right')
                 ax.set_title(shape_text("تعداد پورت‌های باز بر اساس آی‌پی"), fontproperties=font_prop)
                 ax.set_xlabel(shape_text("آی‌پی"), fontproperties=font_prop)
                 ax.set_ylabel(shape_text("تعداد پورت‌های باز"), fontproperties=font_prop)
@@ -2916,7 +2968,7 @@ class ReportsTab(QWidget):
                 else:
                     ax.bar(range(len(ports)), counts)
                     ax.set_xticks(range(len(ports)))
-                    ax.set_xticklabels(ports, rotation=45, ha='right')
+                    ax.set_xticklabels([fa_digits(p) for p in ports], rotation=45, ha='right')
                     ax.set_title(shape_text("تعداد میزبان‌های دارای پورت باز بر اساس شماره پورت"), fontproperties=font_prop)
                     ax.set_xlabel(shape_text("پورت"), fontproperties=font_prop)
                     ax.set_ylabel(shape_text("تعداد میزبان"), fontproperties=font_prop)
