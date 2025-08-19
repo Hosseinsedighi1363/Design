@@ -78,7 +78,8 @@ except Exception:
 
 # تبدیل اعداد انگلیسی به فارسی برای برچسب‌های درصد
 def fa_digits(text: str) -> str:
-    mapping = str.maketrans('0123456789.%', '۰۱۲۳۴۵۶۷۸۹.%')
+    # اعداد فارسی + جداکننده اعشاری فارسی و علامت درصد فارسی
+    mapping = str.maketrans('0123456789.%', '۰۱۲۳۴۵۶۷۸۹٫٪')
     try:
         return text.translate(mapping)
     except Exception:
